@@ -44,7 +44,6 @@ public:
 
 	btMultiBody* createFeatherstoneMultiBody_testMultiDof(class btMultiBodyDynamicsWorld* world, int numLinks, const btVector3& basePosition, const btVector3& baseHalfExtents, const btVector3& linkHalfExtents, bool spherical = false, bool floating = false);
 	void addColliders_testMultiDof(btMultiBody* pMultiBody, btMultiBodyDynamicsWorld* pWorld, const btVector3& baseHalfExtents, const btVector3& linkHalfExtents);
-	void addBoxes_testMultiDof();
 };
 
 static bool g_floatingBase = false;
@@ -158,7 +157,7 @@ void MultiDofDemo::initPhysics()
 	bool gyro = true;
 	int numLinks = 5;
 	bool spherical = true;  //set it ot false -to use 1DoF hinges instead of 3DoF sphericals
-	bool multibodyOnly = false;
+	bool multibodyOnly = true;
 	bool canSleep = false;
 	bool selfCollide = true;
 	bool multibodyConstraint = false;
@@ -191,89 +190,89 @@ void MultiDofDemo::initPhysics()
 		btScalar q0 = 45.f * SIMD_PI / 180.f;
 		if (!spherical)
 		{
-			mbC->setJointPosMultiDof(0, &q0);
+			//mbC->setJointPosMultiDof(0, &q0);
 		}
 		else
 		{
 			btQuaternion quat0(btVector3(1, 1, 0).normalized(), q0);
 			quat0.normalize();
-			mbC->setJointPosMultiDof(0, quat0);
+			//mbC->setJointPosMultiDof(0, quat0);
 		}
 	}
 	///
 	addColliders_testMultiDof(mbC, world, baseHalfExtents, linkHalfExtents);
 
 	/////////////////////////////////////////////////////////////////
-	btScalar groundHeight = -51.55;
-	if (!multibodyOnly)
-	{
-		btScalar mass(0.);
+	//btScalar groundHeight = -51.55;
+	//if (!multibodyOnly)
+	//{
+	//	btScalar mass(0.);
 
-		//rigidbody is dynamic if and only if mass is non zero, otherwise static
-		bool isDynamic = (mass != 0.f);
+	//	//rigidbody is dynamic if and only if mass is non zero, otherwise static
+	//	bool isDynamic = (mass != 0.f);
 
-		btVector3 localInertia(0, 0, 0);
-		if (isDynamic)
-			groundShape->calculateLocalInertia(mass, localInertia);
+	//	btVector3 localInertia(0, 0, 0);
+	//	if (isDynamic)
+	//		groundShape->calculateLocalInertia(mass, localInertia);
 
-		//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-		groundTransform.setIdentity();
-		groundTransform.setOrigin(btVector3(0, groundHeight, 0));
-		btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
-		btRigidBody* body = new btRigidBody(rbInfo);
+	//	//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+	//	groundTransform.setIdentity();
+	//	groundTransform.setOrigin(btVector3(0, groundHeight, 0));
+	//	btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
+	//	btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
+	//	btRigidBody* body = new btRigidBody(rbInfo);
 
-		//add the body to the dynamics world
-		m_dynamicsWorld->addRigidBody(body, 1, 1 + 2);  //,1,1+2);
-	}
-	/////////////////////////////////////////////////////////////////
-	if (!multibodyOnly)
-	{
-		btVector3 halfExtents(.5, .5, .5);
-		btBoxShape* colShape = new btBoxShape(halfExtents);
-		//btCollisionShape* colShape = new btSphereShape(btScalar(1.));
-		m_collisionShapes.push_back(colShape);
+	//	//add the body to the dynamics world
+	//	m_dynamicsWorld->addRigidBody(body, 1, 1 + 2);  //,1,1+2);
+	//}
+	///////////////////////////////////////////////////////////////////
+	//if (!multibodyOnly)
+	//{
+	//	btVector3 halfExtents(.5, .5, .5);
+	//	btBoxShape* colShape = new btBoxShape(halfExtents);
+	//	//btCollisionShape* colShape = new btSphereShape(btScalar(1.));
+	//	m_collisionShapes.push_back(colShape);
 
-		/// Create Dynamic Objects
-		btTransform startTransform;
-		startTransform.setIdentity();
+	//	/// Create Dynamic Objects
+	//	btTransform startTransform;
+	//	startTransform.setIdentity();
 
-		btScalar mass(1.f);
+	//	btScalar mass(1.f);
 
-		//rigidbody is dynamic if and only if mass is non zero, otherwise static
-		bool isDynamic = (mass != 0.f);
+	//	//rigidbody is dynamic if and only if mass is non zero, otherwise static
+	//	bool isDynamic = (mass != 0.f);
 
-		btVector3 localInertia(0, 0, 0);
-		if (isDynamic)
-			colShape->calculateLocalInertia(mass, localInertia);
+	//	btVector3 localInertia(0, 0, 0);
+	//	if (isDynamic)
+	//		colShape->calculateLocalInertia(mass, localInertia);
 
-		startTransform.setOrigin(btVector3(
-			btScalar(0.0),
-			0.0,
-			btScalar(0.0)));
+	//	startTransform.setOrigin(btVector3(
+	//		btScalar(0.0),
+	//		0.0,
+	//		btScalar(0.0)));
 
-		//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
-		btRigidBody* body = new btRigidBody(rbInfo);
+	//	//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+	//	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+	//	btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
+	//	btRigidBody* body = new btRigidBody(rbInfo);
 
-		m_dynamicsWorld->addRigidBody(body);  //,1,1+2);
+	//	m_dynamicsWorld->addRigidBody(body);  //,1,1+2);
 
-		if (multibodyConstraint)
-		{
-			btVector3 pointInA = -linkHalfExtents;
-			//      btVector3 pointInB = halfExtents;
-			btMatrix3x3 frameInA;
-			btMatrix3x3 frameInB;
-			frameInA.setIdentity();
-			frameInB.setIdentity();
-			btVector3 jointAxis(1.0, 0.0, 0.0);
-			//btMultiBodySliderConstraint* p2p = new btMultiBodySliderConstraint(mbC,numLinks-1,body,pointInA,pointInB,frameInA,frameInB,jointAxis);
-			btMultiBodyFixedConstraint* p2p = new btMultiBodyFixedConstraint(mbC, numLinks - 1, mbC, numLinks - 4, pointInA, pointInA, frameInA, frameInB);
-			p2p->setMaxAppliedImpulse(2.0);
-			m_dynamicsWorld->addMultiBodyConstraint(p2p);
-		}
-	}
+	//	if (multibodyConstraint)
+	//	{
+	//		btVector3 pointInA = -linkHalfExtents;
+	//		//      btVector3 pointInB = halfExtents;
+	//		btMatrix3x3 frameInA;
+	//		btMatrix3x3 frameInB;
+	//		frameInA.setIdentity();
+	//		frameInB.setIdentity();
+	//		btVector3 jointAxis(1.0, 0.0, 0.0);
+	//		//btMultiBodySliderConstraint* p2p = new btMultiBodySliderConstraint(mbC,numLinks-1,body,pointInA,pointInB,frameInA,frameInB,jointAxis);
+	//		btMultiBodyFixedConstraint* p2p = new btMultiBodyFixedConstraint(mbC, numLinks - 1, mbC, numLinks - 4, pointInA, pointInA, frameInA, frameInB);
+	//		p2p->setMaxAppliedImpulse(2.0);
+	//		m_dynamicsWorld->addMultiBodyConstraint(p2p);
+	//	}
+	//}
 
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
 
@@ -400,54 +399,6 @@ void MultiDofDemo::addColliders_testMultiDof(btMultiBody* pMultiBody, btMultiBod
 		pWorld->addCollisionObject(col, 2, 1 + 2);
 
 		pMultiBody->getLink(i).m_collider = col;
-	}
-}
-
-void MultiDofDemo::addBoxes_testMultiDof()
-{
-	//create a few dynamic rigidbodies
-	// Re-using the same collision is better for memory usage and performance
-
-	btBoxShape* colShape = new btBoxShape(btVector3(1, 1, 1));
-	//btCollisionShape* colShape = new btSphereShape(btScalar(1.));
-	m_collisionShapes.push_back(colShape);
-
-	/// Create Dynamic Objects
-	btTransform startTransform;
-	startTransform.setIdentity();
-
-	btScalar mass(1.f);
-
-	//rigidbody is dynamic if and only if mass is non zero, otherwise static
-	bool isDynamic = (mass != 0.f);
-
-	btVector3 localInertia(0, 0, 0);
-	if (isDynamic)
-		colShape->calculateLocalInertia(mass, localInertia);
-
-	float start_x = START_POS_X - ARRAY_SIZE_X / 2;
-	float start_y = START_POS_Y;
-	float start_z = START_POS_Z - ARRAY_SIZE_Z / 2;
-
-	for (int k = 0; k < ARRAY_SIZE_Y; k++)
-	{
-		for (int i = 0; i < ARRAY_SIZE_X; i++)
-		{
-			for (int j = 0; j < ARRAY_SIZE_Z; j++)
-			{
-				startTransform.setOrigin(btVector3(
-					btScalar(3.0 * i + start_x),
-					btScalar(3.0 * k + start_y),
-					btScalar(3.0 * j + start_z)));
-
-				//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-				btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-				btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
-				btRigidBody* body = new btRigidBody(rbInfo);
-
-				m_dynamicsWorld->addRigidBody(body);  //,1,1+2);
-			}
-		}
 	}
 }
 

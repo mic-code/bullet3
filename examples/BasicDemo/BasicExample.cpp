@@ -16,6 +16,7 @@ subject to the following restrictions:
 #include "BasicExample.h"
 
 #include "btBulletDynamicsCommon.h"
+#include "landscapeData.h"
 #define ARRAY_SIZE_Y 5
 #define ARRAY_SIZE_X 5
 #define ARRAY_SIZE_Z 5
@@ -24,6 +25,7 @@ subject to the following restrictions:
 #include "LinearMath/btAlignedObjectArray.h"
 
 #include "../CommonInterfaces/CommonRigidBodyBase.h"
+#include "BulletCollision/CollisionShapes/btTriangleShape.h"
 
 struct BasicExample : public CommonRigidBodyBase
 {
@@ -33,6 +35,7 @@ struct BasicExample : public CommonRigidBodyBase
 	}
 	virtual ~BasicExample() {}
 	virtual void initPhysics();
+	void createLargeMeshBody();
 	virtual void renderScene();
 	void resetCamera()
 	{
@@ -63,14 +66,15 @@ void BasicExample::initPhysics()
 
 	m_collisionShapes.push_back(groundShape);
 
-	btTransform groundTransform;
-	groundTransform.setIdentity();
-	groundTransform.setOrigin(btVector3(0, -50, 0));
 
-	{
+	/*btTransform groundTransform;
+	groundTransform.setIdentity();
+	groundTransform.setOrigin(btVector3(0, -50, 0));*/
+
+	/*{
 		btScalar mass(0.);
 		createRigidBody(mass, groundTransform, groundShape, btVector4(0, 0, 1, 1));
-	}
+	}*/
 
 	{
 		//create a few dynamic rigidbodies
@@ -109,10 +113,69 @@ void BasicExample::initPhysics()
 				}
 			}
 		}
+		createLargeMeshBody();
 	}
 
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
 }
+
+
+static bool myCustomMaterialCombinerCallback(
+	btManifoldPoint& cp,
+	const btCollisionObjectWrapper* colObj0Wrap,
+	int partId0,
+	int index0,
+	const btCollisionObjectWrapper* colObj1Wrap,
+	int partId1,
+	int index1)
+{
+	// one-sided triangles
+	if (colObj1Wrap->getCollisionShape()->getShapeType() == TRIANGLE_SHAPE_PROXYTYPE)
+	{
+		auto triShape = static_cast<const btTriangleShape*>(colObj1Wrap->getCollisionShape());
+		const btVector3* v = triShape->m_vertices1;
+		btVector3 faceNormalLs = btCross(v[1] - v[0], v[2] - v[0]);
+		faceNormalLs.normalize();
+		btVector3 faceNormalWs = colObj1Wrap->getWorldTransform().getBasis() * faceNormalLs;
+		btScalar nDotF = btDot(faceNormalWs, cp.m_normalWorldOnB);
+		if (nDotF <= 0.0f)
+		{
+			// flip the contact normal to be aligned with the face normal
+			cp.m_normalWorldOnB += -2.0 * nDotF * faceNormalWs;
+		}
+	}
+
+	//this return value is currently ignored, but to be on the safe side: return false if you don't calculate friction
+	return false;
+}
+
+void BasicExample::createLargeMeshBody()
+{
+	btTransform trans;
+	trans.setIdentity();
+
+	btTriangleIndexVertexArray* meshInterface = new btTriangleIndexVertexArray();
+	btIndexedMesh part;
+
+	part.m_vertexBase = (const unsigned char*)LandscapeVtx;
+	part.m_vertexStride = sizeof(btScalar) * 3;
+	part.m_numVertices = 4;
+	part.m_triangleIndexBase = (const unsigned char*)LandscapeIdx;
+	part.m_triangleIndexStride = sizeof(short) * 3;
+	part.m_numTriangles = 6/3;
+
+	meshInterface->addIndexedMesh(part, PHY_SHORT);
+
+	bool useQuantizedAabbCompression = true;
+	btBvhTriangleMeshShape* trimeshShape = new btBvhTriangleMeshShape(meshInterface, useQuantizedAabbCompression);
+	btVector3 localInertia(0, 0, 0);
+
+	btRigidBody* body = createRigidBody(0, trans, trimeshShape);
+	body->setFriction(btScalar(0.9));
+
+	gContactAddedCallback = myCustomMaterialCombinerCallback;
+}
+
 
 void BasicExample::renderScene()
 {
