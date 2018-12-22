@@ -49,6 +49,7 @@ struct BasicExample : public CommonRigidBodyBase
 
 void BasicExample::initPhysics()
 {
+	printf("init");
 	m_guiHelper->setUpAxis(1);
 
 	createEmptyDynamicsWorld();
@@ -170,8 +171,12 @@ void BasicExample::createLargeMeshBody()
 	btBvhTriangleMeshShape* trimeshShape = new btBvhTriangleMeshShape(meshInterface, useQuantizedAabbCompression);
 	btVector3 localInertia(0, 0, 0);
 
-	btRigidBody* body = createRigidBody(0, trans, trimeshShape);
-	body->setFriction(btScalar(0.9));
+	//btRigidBody* body = createRigidBody(0, trans, trimeshShape);
+
+	auto co = new btCollisionObject();
+	co->setCollisionShape(trimeshShape);
+	co->setCollisionFlags(co->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
+	m_dynamicsWorld->addCollisionObject(co);
 
 	gContactAddedCallback = myCustomMaterialCombinerCallback;
 }
