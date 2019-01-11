@@ -31,6 +31,8 @@ public:
 
 	virtual void initPhysics();
 
+	void AddGround();
+
 	virtual void stepSimulation(float deltaTime);
 
 	virtual void resetCamera()
@@ -202,6 +204,18 @@ void MultiDofDemo::initPhysics()
 	///
 	addColliders_testMultiDof(mbC, world, baseHalfExtents, linkHalfExtents);
 
+	//cylinder
+	btTransform startTransform;
+	startTransform.setIdentity();
+	startTransform.setOrigin(btVector3(0.5, 2, 0.5));
+	auto colShape = new btCylinderShape(btVector3(0.5, 0.5, 0.5));
+	btVector3 localInertia(0, 0, 0);
+		colShape->calculateLocalInertia(1, localInertia);
+	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+		btRigidBody::btRigidBodyConstructionInfo rbInfo(1, myMotionState, colShape, localInertia);
+	btRigidBody* body = new btRigidBody(rbInfo);
+	m_dynamicsWorld->addRigidBody(body);
+
 	/////////////////////////////////////////////////////////////////
 	//btScalar groundHeight = -51.55;
 	//if (!multibodyOnly)
@@ -274,9 +288,41 @@ void MultiDofDemo::initPhysics()
 	//	}
 	//}
 
+	AddGround();
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
-
 	/////////////////////////////////////////////////////////////////
+}
+
+void MultiDofDemo::AddGround()
+{
+	btVector3 groundHalfExtents(50, 50, 50);
+	btCollisionShape* groundShape = new btBoxShape(groundHalfExtents);
+	//groundShape->initializePolyhedralFeatures();
+	//	btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0,1,0),50);
+
+	btTransform groundTransform;
+	groundTransform.setIdentity();
+	groundTransform.setOrigin(btVector3(0, -50, 00));
+	btScalar groundHeight = -51.55;
+
+	btScalar mass(0.);
+
+	//rigidbody is dynamic if and only if mass is non zero, otherwise static
+	bool isDynamic = (mass != 0.f);
+
+	btVector3 localInertia(0, 0, 0);
+	if (isDynamic)
+		groundShape->calculateLocalInertia(mass, localInertia);
+
+	//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+	groundTransform.setIdentity();
+	groundTransform.setOrigin(btVector3(0, groundHeight, 0));
+	btDefaultMotionState* myMotionState = new btDefaultMotionState(groundTransform);
+	btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, groundShape, localInertia);
+	btRigidBody* body = new btRigidBody(rbInfo);
+
+	//add the body to the dynamics world
+	m_dynamicsWorld->addRigidBody(body, 1, 1 + 2);  //,1,1+2);
 }
 
 btMultiBody* MultiDofDemo::createFeatherstoneMultiBody_testMultiDof(btMultiBodyDynamicsWorld* pWorld, int numLinks, const btVector3& basePosition, const btVector3& baseHalfExtents, const btVector3& linkHalfExtents, bool spherical, bool floating)
