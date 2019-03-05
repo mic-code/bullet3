@@ -352,6 +352,7 @@ void BenchmarkDemo::stepSimulation(float deltaTime)
 	if (m_dynamicsWorld)
 	{
 		m_dynamicsWorld->stepSimulation(deltaTime);
+		printf("%d\n",m_dynamicsWorld->getPairCache()->getNumOverlappingPairs());
 	}
 
 	if (m_benchmark == 7)
@@ -657,6 +658,14 @@ void BenchmarkDemo::createTest2()
 	createWall(btVector3(4.0f, 0.0f, 0.0f), 12, btVector3(cubeSize, cubeSize, cubeSize));
 	createWall(btVector3(10.0f, 0.0f, 0.0f), 12, btVector3(cubeSize, cubeSize, cubeSize));
 	createTowerCircle(btVector3(25.0f, 0.0f, 0.0f), 8, 24, btVector3(cubeSize, cubeSize, cubeSize));
+
+	createTowerCircle(btVector3(50.0f, 0.0f, 50.0f), 8, 24, btVector3(cubeSize, cubeSize, cubeSize));
+
+	createTowerCircle(btVector3(60.0f, 0.0f, 60.0f), 8, 24, btVector3(cubeSize, cubeSize, cubeSize));
+
+	createTowerCircle(btVector3(70.0f, 0.0f, 70.0f), 8, 24, btVector3(cubeSize, cubeSize, cubeSize));
+
+	createTowerCircle(btVector3(80.0f, 0.0f, 80.0f), 8, 24, btVector3(cubeSize, cubeSize, cubeSize));
 }
 
 // Enrico: Shouldn't these three variables be real constants and not defines?

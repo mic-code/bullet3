@@ -22,6 +22,105 @@
 #include "BulletCollision/CollisionShapes/btShapeHull.h"
 
 #include "../CommonInterfaces/CommonMultiBodyBase.h"
+class Profiler
+{
+public:
+	enum RecordType
+	{
+		kRecordInternalTimeStep,
+		kRecordDispatchAllCollisionPairs,
+		kRecordDispatchIslands,
+		kRecordPredictUnconstrainedMotion,
+		kRecordCreatePredictiveContacts,
+		kRecordIntegrateTransforms,
+		kRecordSolverTotal,
+		kRecordSolverSetup,
+		kRecordSolverIterations,
+		kRecordSolverFinish,
+		kRecordCount
+	};
+
+private:
+	btClock mClock;
+
+	struct Record
+	{
+		int mCallCount;
+		unsigned long long mAccum;
+		unsigned int mStartTime;
+		unsigned int mHistory[8];
+
+		void begin(unsigned int curTime)
+		{
+			mStartTime = curTime;
+		}
+		void end(unsigned int curTime)
+		{
+			unsigned int endTime = curTime;
+			unsigned int elapsed = endTime - mStartTime;
+			mAccum += elapsed;
+			mHistory[mCallCount & 7] = elapsed;
+			++mCallCount;
+		}
+		float getAverageTime() const
+		{
+			int count = btMin(8, mCallCount);
+			if (count > 0)
+			{
+				unsigned int sum = 0;
+				for (int i = 0; i < count; ++i)
+				{
+					sum += mHistory[i];
+				}
+				float avg = float(sum) / float(count);
+				return avg;
+			}
+			return 0.0;
+		}
+	};
+	Record mRecords[kRecordCount];
+
+public:
+	void begin(RecordType rt)
+	{
+		mRecords[rt].begin(mClock.getTimeMicroseconds());
+	}
+	void end(RecordType rt)
+	{
+		mRecords[rt].end(mClock.getTimeMicroseconds());
+	}
+	float getAverageTime(RecordType rt) const
+	{
+		return mRecords[rt].getAverageTime();
+	}
+};
+static Profiler gProfiler;
+
+class ProfileHelper
+{
+	Profiler::RecordType mRecType;
+
+public:
+	ProfileHelper(Profiler::RecordType rt)
+	{
+		mRecType = rt;
+		gProfiler.begin(mRecType);
+	}
+	~ProfileHelper()
+	{
+		gProfiler.end(mRecType);
+	}
+};
+
+static void profileBeginCallback(btDynamicsWorld* world, btScalar timeStep)
+{
+	gProfiler.begin(Profiler::kRecordInternalTimeStep);
+}
+
+static void profileEndCallback(btDynamicsWorld* world, btScalar timeStep)
+{
+	gProfiler.end(Profiler::kRecordInternalTimeStep);
+}
 
 class MultiDofDemo : public CommonMultiBodyBase
 {
@@ -52,9 +151,9 @@ static bool g_firstInit = true;
 static float scaling = 0.4f;
 static float friction = 1.;
 static int g_constraintSolverType = 0;
-#define ARRAY_SIZE_X 5
-#define ARRAY_SIZE_Y 5
-#define ARRAY_SIZE_Z 5
+#define ARRAY_SIZE_X 10
+#define ARRAY_SIZE_Y 10
+#define ARRAY_SIZE_Z 10
 
 //maximum number of objects (and allow user to shoot additional boxes)
 #define MAX_PROXIES (ARRAY_SIZE_X * ARRAY_SIZE_Y * ARRAY_SIZE_Z + 1024)
@@ -78,11 +177,20 @@ void MultiDofDemo::stepSimulation(float deltaTime)
 	//use a smaller internal timestep, there are stability issues
 	float internalTimeStep = 1. / 240.f;
 	m_dynamicsWorld->stepSimulation(deltaTime, 10, internalTimeStep);
+
+	char msg[1024];
+	int xCoord = 400;
+	int yCoord = 30;
+	sprintf(msg, "internalSimStep %5.3f ms, pairs %d",
+			gProfiler.getAverageTime(Profiler::kRecordInternalTimeStep) * 0.001f,
+			m_dynamicsWorld->getPairCache()->getNumOverlappingPairs());
+	m_guiHelper->getAppInterface()->drawText(msg, xCoord, yCoord, 0.4f);
 }
 
 void MultiDofDemo::initPhysics()
 {
 	m_guiHelper->setUpAxis(1);
+
 
 	if (g_firstInit)
 	{
@@ -106,7 +214,7 @@ void MultiDofDemo::initPhysics()
 
 	btMultiBodyConstraintSolver* sol;
 	btMLCPSolverInterface* mlcp;
-	switch (g_constraintSolverType++)
+	/*switch (g_constraintSolverType++)
 	{
 		case 0:
 			sol = new btMultiBodyConstraintSolver;
@@ -127,8 +235,8 @@ void MultiDofDemo::initPhysics()
 			sol = new btMultiBodyMLCPConstraintSolver(mlcp);
 			b3Printf("Constraint Solver: MLCP + Lemke");
 			break;
-	}
-
+	}*/
+	sol = new btMultiBodyConstraintSolver;
 	m_solver = sol;
 
 	//use btMultiBodyDynamicsWorld for Featherstone btMultiBody support
@@ -145,6 +253,8 @@ void MultiDofDemo::initPhysics()
 	//groundShape->initializePolyhedralFeatures();
 	//	btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0,1,0),50);
 
+	m_dynamicsWorld->setInternalTickCallback(profileBeginCallback, NULL, true);
+	m_dynamicsWorld->setInternalTickCallback(profileEndCallback, NULL, false);
 	m_collisionShapes.push_back(groundShape);
 
 	btTransform groundTransform;
@@ -201,7 +311,7 @@ void MultiDofDemo::initPhysics()
 		}
 	}
 	///
-	addColliders_testMultiDof(mbC, world, baseHalfExtents, linkHalfExtents);
+	//addColliders_testMultiDof(mbC, world, baseHalfExtents, linkHalfExtents);
 
 	/////////////////////////////////////////////////////////////////
 	btScalar groundHeight = -51.55;
@@ -227,54 +337,55 @@ void MultiDofDemo::initPhysics()
 		m_dynamicsWorld->addRigidBody(body, 1, 1 + 2);  //,1,1+2);
 	}
 	/////////////////////////////////////////////////////////////////
-	if (!multibodyOnly)
-	{
-		btVector3 halfExtents(.5, .5, .5);
-		btBoxShape* colShape = new btBoxShape(halfExtents);
-		//btCollisionShape* colShape = new btSphereShape(btScalar(1.));
-		m_collisionShapes.push_back(colShape);
+	//if (!multibodyOnly)
+	//{
+	//	btVector3 halfExtents(.5, .5, .5);
+	//	btBoxShape* colShape = new btBoxShape(halfExtents);
+	//	//btCollisionShape* colShape = new btSphereShape(btScalar(1.));
+	//	m_collisionShapes.push_back(colShape);
 
-		/// Create Dynamic Objects
-		btTransform startTransform;
-		startTransform.setIdentity();
+	//	/// Create Dynamic Objects
+	//	btTransform startTransform;
+	//	startTransform.setIdentity();
 
-		btScalar mass(1.f);
+	//	btScalar mass(1.f);
 
-		//rigidbody is dynamic if and only if mass is non zero, otherwise static
-		bool isDynamic = (mass != 0.f);
+	//	//rigidbody is dynamic if and only if mass is non zero, otherwise static
+	//	bool isDynamic = (mass != 0.f);
 
-		btVector3 localInertia(0, 0, 0);
-		if (isDynamic)
-			colShape->calculateLocalInertia(mass, localInertia);
+	//	btVector3 localInertia(0, 0, 0);
+	//	if (isDynamic)
+	//		colShape->calculateLocalInertia(mass, localInertia);
 
-		startTransform.setOrigin(btVector3(
-			btScalar(0.0),
-			0.0,
-			btScalar(0.0)));
+	//	startTransform.setOrigin(btVector3(
+	//		btScalar(0.0),
+	//		0.0,
+	//		btScalar(0.0)));
 
-		//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
-		btRigidBody* body = new btRigidBody(rbInfo);
+	//	//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+	//	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+	//	btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, colShape, localInertia);
+	//	btRigidBody* body = new btRigidBody(rbInfo);
 
-		m_dynamicsWorld->addRigidBody(body);  //,1,1+2);
+	//	m_dynamicsWorld->addRigidBody(body);  //,1,1+2);
 
-		if (multibodyConstraint)
-		{
-			btVector3 pointInA = -linkHalfExtents;
-			//      btVector3 pointInB = halfExtents;
-			btMatrix3x3 frameInA;
-			btMatrix3x3 frameInB;
-			frameInA.setIdentity();
-			frameInB.setIdentity();
-			btVector3 jointAxis(1.0, 0.0, 0.0);
-			//btMultiBodySliderConstraint* p2p = new btMultiBodySliderConstraint(mbC,numLinks-1,body,pointInA,pointInB,frameInA,frameInB,jointAxis);
-			btMultiBodyFixedConstraint* p2p = new btMultiBodyFixedConstraint(mbC, numLinks - 1, mbC, numLinks - 4, pointInA, pointInA, frameInA, frameInB);
-			p2p->setMaxAppliedImpulse(2.0);
-			m_dynamicsWorld->addMultiBodyConstraint(p2p);
-		}
-	}
+	//	if (multibodyConstraint)
+	//	{
+	//		btVector3 pointInA = -linkHalfExtents;
+	//		//      btVector3 pointInB = halfExtents;
+	//		btMatrix3x3 frameInA;
+	//		btMatrix3x3 frameInB;
+	//		frameInA.setIdentity();
+	//		frameInB.setIdentity();
+	//		btVector3 jointAxis(1.0, 0.0, 0.0);
+	//		//btMultiBodySliderConstraint* p2p = new btMultiBodySliderConstraint(mbC,numLinks-1,body,pointInA,pointInB,frameInA,frameInB,jointAxis);
+	//		btMultiBodyFixedConstraint* p2p = new btMultiBodyFixedConstraint(mbC, numLinks - 1, mbC, numLinks - 4, pointInA, pointInA, frameInA, frameInB);
+	//		p2p->setMaxAppliedImpulse(2.0);
+	//		m_dynamicsWorld->addMultiBodyConstraint(p2p);
+	//	}
+	//}
 
+	addBoxes_testMultiDof();
 	m_guiHelper->autogenerateGraphicsObjects(m_dynamicsWorld);
 
 	/////////////////////////////////////////////////////////////////

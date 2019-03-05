@@ -18,3 +18,5 @@ pip-selfcheck.json
 /build
 /dist
 *.eggs
+CMakeFiles/
+CMakeCache.txt
